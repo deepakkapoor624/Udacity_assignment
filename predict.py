@@ -19,10 +19,13 @@ parser.add_argument ('load_dir', help = 'Provide path to checkpoint. Mandatory a
 parser.add_argument ('--top_k', help = 'Top K most likely classes. Optional', type = int)
 parser.add_argument ('--category_names', help = 'Mapping of categories to real names. JSON file name to be provided. Optional', type = str)
 # 5. Choose the GPU for training
-parser.add_argument('--GPU', default="cpu",
+parser.add_argument('--gpu', action='store_true',
                     help="If you would like to use the GPU for training. Default is False. if you want to use the gpu enter True or gpu or cuda")  
 
-def loading_model (file_path):
+#preparing class_names using mapping with cat_to_name
+class_names = [cat_to_name [item] for item in classes]
+
+def load_model(file_path):
     checkpoint = torch.load (file_path) #loading checkpoint from a file
     if checkpoint ['arch'] == 'alexnet':
         model = models.alexnet (pretrained = True)
@@ -43,24 +46,18 @@ def process_image(image):
         returns an Numpy array
     '''
     im = Image.open (image) #loading image
-    width, height = im.size #original size
 
     # smallest part: width or height should be kept not more than 256
-    if width > height:
-        height = 256
-        im.thumbnail ((50000, height))
-    else:
-        width = 256
-        im.thumbnail ((width,50000))
-
+    im.thumbnail((256,256))
+    
     width, height = im.size #new size of im
     #crop 224x224 in the center
-    reduce = 224
-    left = (width - reduce)/2
-    top = (height - reduce)/2
+    crop = 224
+    left = (width - crop)/2
+    top = (height - crop)/2
     right = left + 224
     bottom = top + 224
-    im = im.crop ((left, top, right, bottom))
+    im = im.crop((left, top, right, bottom))
 
     #preparing numpy array
     np_image = np.array (im)/255 #to make values from 0 to 1
@@ -120,7 +117,7 @@ args = parser.parse_args ()
 file_path = args.image_dir
 
 #defining device: either cuda or cpu
-if args.GPU == 'GPU':
+if args.gpu == 'gpu' and torch.cuda.is_available():
     device = 'cuda'
 else:
     device = 'cpu'
@@ -135,22 +132,17 @@ else:
         pass
 
 #loading model from checkpoint provided
-model = loading_model (args.load_dir)
+model = load_model(args.load_dir)
 
 #defining number of classes to be predicted. Default = 1
-if args.top_k:
-    nm_cl = args.top_k
-else:
-    nm_cl = 1
+nm_cl = args.top_k
 
 #calculating probabilities and classes
 probs, classes = predict (file_path, model, nm_cl, device)
 
-#preparing class_names using mapping with cat_to_name
-class_names = [cat_to_name [item] for item in classes]
 
-for l in range (nm_cl):
-     print("Number: {}/{}.. ".format(l+1, nm_cl),
-            "Class name: {}.. ".format(class_names [l]),
-            "Probability: {:.3f}..% ".format(probs [l]*100),
+for i in range (nm_cl):
+     print("Number: {}/{} ".format(i+1, nm_cl),
+            "Class name: {} ".format(class_names [i]),
+            "Probability: {}% ".format(probs [i]*100),
             )

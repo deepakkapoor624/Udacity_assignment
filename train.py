@@ -31,7 +31,7 @@ parser.add_argument('--epochs', type=int, default=2,
                     help="The number of epochs you want to use")
 
 # 5. Choose the GPU for training
-parser.add_argument('--GPU', default="cpu",
+parser.add_argument('--gpu', action='store_true',
                     help="If you would like to use the GPU for training. Default is False. if you want to use the gpu enter True or gpu or cuda")
 
 args = parser.parse_args()
@@ -46,26 +46,28 @@ lr = args.lr
 num_hidden_units = args.hidden_units
 epochs = args.epochs
 
-if args.GPU == 'gpu':
+if args.gpu == 'gpu' and torch.cuda.is_available():
     device = 'cuda'
 else:
     device = 'cpu'
     
 if data_dir: #making sure we do have value for data_dir
     # Define your transforms for the training, validation, and testing sets
-    train_data_transforms = transforms.Compose ([transforms.Resize((224,224)),
-                                                transforms.ToTensor (),
+    train_data_transforms = transforms.Compose ([transforms.RandomRotation(30),
+                                                transforms.Resize((224,224)),
+                                                transforms.RandomHorizontalFlip(),
+                                                transforms.ToTensor(),
+                                                transforms.Normalize([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
+                                                ])
+
+    valid_data_transforms = transforms.Compose ([transforms.Resize((224,224)),
+                                                transforms.ToTensor(),
                                                 transforms.Normalize ([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
                                                 ])
 
-    valid_data_transforms = transforms.Compose ([transforms.Resize ((224,224)),
-                                                transforms.ToTensor (),
-                                                transforms.Normalize ([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
-                                                ])
-
-    test_data_transforms = transforms.Compose ([transforms.Resize ((224,224)),
-                                                transforms.ToTensor (),
-                                                transforms.Normalize ([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
+    test_data_transforms = transforms.Compose ([transforms.Resize((224,224)),
+                                                transforms.ToTensor(),
+                                                transforms.Normalize([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
                                                 ])
     
     
@@ -82,14 +84,11 @@ if data_dir: #making sure we do have value for data_dir
   
 
 
-
-
-
 with open('cat_to_name.json', 'r') as f:
     cat_to_name = json.load(f)
 
 def load_model (arch, hidden_units):
-    if arch == 'vgg13': #setting model based on vgg13
+    if arch == 'vgg16': #setting model based on vgg13
         model = models.vgg13 (pretrained = True)
         for param in model.parameters():
             param.requires_grad = False
@@ -157,9 +156,9 @@ def validation(model, valid_loader, criterion):
         output = model.forward(inputs)
         valid_loss += criterion(output, labels).item()
 
-        ps = torch.exp(output)
-        equality = (labels.data == ps.max(dim=1)[1])
-        accuracy += equality.type(torch.FloatTensor).mean()
+        top_p, top_class = ps.topk(1, dim=1)
+        equals = top_class == labels.view(*top_class.shape)
+        accuracy += equals.type(torch.FloatTensor).mean()
 
     return valid_loss, accuracy
 
@@ -169,19 +168,12 @@ model, arch = load_model (arch, num_hidden_units)
 #Actual training of the model
 #initializing criterion and optimizer
 criterion = nn.NLLLoss ()
-if lr: #if learning rate was provided
-    optimizer = optim.Adam (model.classifier.parameters (), lr = lr)
-else:
-    optimizer = optim.Adam (model.classifier.parameters (), lr = 0.001)
+
+optimizer = optim.Adam (model.classifier.parameters (), lr = lr)
 
 
 model.to (device) #device can be either cuda or cpu
 #setting number of epochs to be run
-if args.epochs:
-    epochs = args.epochs
-else:
-    epochs = 3
-
 print_every = 50
 steps = 0
 
@@ -206,10 +198,10 @@ for e in range (epochs):
             with torch.no_grad():
                 valid_loss, accuracy = validation(model, valid_loader, criterion)
 
-            print("Epoch: {}/{}.. ".format(e+1, epochs),
-                  "Training Loss: {:.3f}.. ".format(running_loss/print_every),
-                  "Valid Loss: {:.3f}.. ".format(valid_loss/len(valid_loader)),
-                  "Valid Accuracy: {:.3f}%".format(accuracy/len(valid_loader)*100))
+            print("Epoch: {}/{}".format(e+1, epochs),
+                  "Training Loss: {} ".format(running_loss/print_every),
+                  "Valid Loss: {}".format(valid_loss/len(valid_loader)),
+                  "Valid Accuracy: {}%".format(accuracy/len(valid_loader)*100))
 
             running_loss = 0
             # Make sure training is back on
@@ -223,12 +215,9 @@ model.class_to_idx = train_image_datasets.class_to_idx #saving mapping between p
 
 #creating dictionary for model saving
 checkpoint = {'classifier': model.classifier,
-              'state_dict': model.state_dict (),
+              'state_dict': model.state_dict(),
               'arch': arch,
               'mapping':    model.class_to_idx
              }
-#saving trained model for future use
-if args.save_dir:
-    torch.save (checkpoint, args.save_dir + '/checkpoint.pth')
-else:
-    torch.save (checkpoint, 'checkpoint.pth')
+
+torch.save (checkpoint, args.save_dir + '/checkpoint.pth')
