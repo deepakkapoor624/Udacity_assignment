@@ -100,14 +100,14 @@ def load_model (arch, hidden_units=2048):
         
        
         classifier = nn.Sequential  (OrderedDict ([
-                    ('fc1', nn.Linear (25088, 4096)),
-                    ('relu1', nn.ReLU ()),
-                    ('dropout1', nn.Dropout (p = 0.3)),
-                    ('fc2', nn.Linear (4096, hidden_units)),
-                    ('relu2', nn.ReLU ()),
-                    ('dropout2', nn.Dropout (p = 0.3)),
-                    ('fc3', nn.Linear (hidden_units, output_class)),
-                    ('output', nn.LogSoftmax (dim =1))
+                    ('fc1', nn.Linear(25088, 4096)),
+                    ('relu1', nn.ReLU()),
+                    ('dropout1', nn.Dropout(p = 0.3)),
+                    ('fc2', nn.Linear(4096, hidden_units)),
+                    ('relu2', nn.ReLU()),
+                    ('dropout2', nn.Dropout(p = 0.3)),
+                    ('fc3', nn.Linear(hidden_units, output_class)),
+                    ('output', nn.LogSoftmax(dim =1))
                     ]))
     #setting model based on default Alexnet ModuleList
     else:
@@ -117,14 +117,14 @@ def load_model (arch, hidden_units=2048):
             param.requires_grad = False
        
         classifier = nn.Sequential(OrderedDict ([
-                    ('fc1', nn.Linear (9216, 4096)),
-                    ('relu1', nn.ReLU ()),
-                    ('dropout1', nn.Dropout (p = 0.3)),
-                    ('fc2', nn.Linear (4096, hidden_units)),
-                    ('relu2', nn.ReLU ()),
+                    ('fc1', nn.Linear(25088, 4096)),
+                    ('relu1', nn.ReLU()),
+                    ('dropout1', nn.Dropout(p = 0.3)),
+                    ('fc2', nn.Linear(4096, hidden_units)),
+                    ('relu2', nn.ReLU()),
                     ('dropout2', nn.Dropout (p = 0.3)),
-                    ('fc3', nn.Linear (hidden_units, output_class)),
-                    ('output', nn.LogSoftmax (dim =1))
+                    ('fc3', nn.Linear(hidden_units, output_class)),
+                    ('output', nn.LogSoftmax(dim =1))
                     ]))
     
     model.classifier = classifier
@@ -132,7 +132,7 @@ def load_model (arch, hidden_units=2048):
 
 # Defining validation Function. will be used during training
 def validation(model, valid_loader, criterion):
-    model.to (device)
+    model.to(device)
 
     valid_loss = 0
     accuracy = 0
@@ -161,11 +161,11 @@ model.to(device)
 #setting number of epochs to be run
 print_every = 50
 steps = 0
-
+model.train()
 #runing through epochs
 for e in range (epochs):
     running_loss = 0
-    for ii, (inputs, labels) in enumerate(train_loader):
+    for inputs, labels in train_loader:
         steps += 1
         inputs, labels = inputs.to(device), labels.to(device)
         #where optimizer is working on classifier paramters only
@@ -173,18 +173,18 @@ for e in range (epochs):
 
         # Forward and backward passes
         #calculating output
-        outputs = model.forward (inputs)
+        outputs = model.forward(inputs)
         #calculating loss (cost function)
-        loss = criterion (outputs, labels)
+        loss = criterion(outputs, labels)
         loss.backward()
         #performs single optimization step
         optimizer.step()
         # loss.item () returns value of Loss function
-        running_loss += loss.item ()
+        running_loss += loss.item()
 
         if steps % print_every == 0:
             #switching to evaluation mode so that dropout is turned off
-            model.eval ()
+            model.eval()
             # Turn off gradients for validation, saves memory and computations
             with torch.no_grad():
                 valid_loss, accuracy = validation(model, valid_loader, criterion)
