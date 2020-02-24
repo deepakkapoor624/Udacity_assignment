@@ -26,17 +26,20 @@ parser.add_argument('--gpu', action='store_true',
 class_names = [cat_to_name [item] for item in classes]
 
 def load_model(file_path):
-    checkpoint = torch.load (file_path) #loading checkpoint from a file
+    #loading checkpoint from a file
+    checkpoint = torch.load (file_path)
     if checkpoint ['arch'] == 'alexnet':
-        model = models.alexnet (pretrained = True)
-    else: #vgg13 as only 2 options available
-        model = models.vgg13 (pretrained = True)
-    model.classifier = checkpoint ['classifier']
-    model.load_state_dict (checkpoint ['state_dict'])
-    model.class_to_idx = checkpoint ['mapping']
+        model = models.alexnet(pretrained = True)
+    else:
+        model = models.vgg16(pretrained = True)
 
+    model.classifier = checkpoint['classifier']
+    model.load_state_dict (checkpoint['state_dict'])
+    model.class_to_idx = checkpoint['mapping']
+
+    #turning off tuning of the model
     for param in model.parameters():
-        param.requires_grad = False #turning off tuning of the model
+        param.requires_grad = False
 
     return model
 
@@ -45,12 +48,15 @@ def process_image(image):
     ''' Scales, crops, and normalizes a PIL image for a PyTorch model,
         returns an Numpy array
     '''
-    im = Image.open (image) #loading image
+    #loading image
+    im = Image.open(image)
 
     # smallest part: width or height should be kept not more than 256
     im.thumbnail((256,256))
-    
-    width, height = im.size #new size of im
+
+    #new size of im
+    width, height = im.size
+
     #crop 224x224 in the center
     crop = 224
     left = (width - crop)/2
@@ -60,13 +66,15 @@ def process_image(image):
     im = im.crop((left, top, right, bottom))
 
     #preparing numpy array
-    np_image = np.array (im)/255 #to make values from 0 to 1
+    #to make values from 0 to 1
+    np_image = np.array (im)/255
     np_image -= np.array ([0.485, 0.456, 0.406])
     np_image /= np.array ([0.229, 0.224, 0.225])
 
     #PyTorch expects the color channel to be the first dimension but it's the third dimension in the PIL image and Numpy array.
     #The color channel needs to be first and retain the order of the other two dimensions.
     np_image= np_image.transpose ((2,0,1))
+
     return np_image
 
 #defining prediction function
@@ -83,7 +91,7 @@ def predict(image_path, model, topkl, device):
     else:
         im = torch.from_numpy (image).type (torch.FloatTensor)
 
-    im = im.unsqueeze (dim = 0) #used to make size of torch as expected. as forward method is working with batches,
+    im = im.unsqueeze (dim = 0)
     #doing that we will have batch size = 1
 
     #enabling GPU/CPU
@@ -92,23 +100,24 @@ def predict(image_path, model, topkl, device):
 
     with torch.no_grad ():
         output = model.forward (im)
-    output_prob = torch.exp (output) #converting into a probability
+    #converting into a probability
+    prob = torch.exp (output)
 
-    probs, indeces = output_prob.topk (topkl)
-    probs = probs.cpu ()
-    indeces = indeces.cpu ()
-    probs = probs.numpy () #converting both to numpy array
-    indeces = indeces.numpy ()
+    probs, indices = prob.topk (topkl)
+    probs = (probs.cpu()).numpy()
+    indices = (indices.cpu()).numpy()
 
-    probs = probs.tolist () [0] #converting both to list
-    indeces = indeces.tolist () [0]
+    #converting both to list
+    probs = probs.tolist()[0]
+    indices = indices.tolist()[0]
 
     mapping = {val: key for key, val in
                 model.class_to_idx.items()
                 }
 
-    classes = [mapping [item] for item in indeces]
-    classes = np.array (classes) #converting to Numpy array
+    classes = [mapping [item] for item in indices]
+    #converting to Numpy array
+    classes = np.array (classes)
 
     return probs, classes
 

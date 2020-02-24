@@ -50,8 +50,8 @@ if args.gpu == 'gpu' and torch.cuda.is_available():
     device = 'cuda'
 else:
     device = 'cpu'
-    
-if data_dir: #making sure we do have value for data_dir
+
+if data_dir:
     # Define your transforms for the training, validation, and testing sets
     train_data_transforms = transforms.Compose ([transforms.RandomRotation(30),
                                                 transforms.Resize((224,224)),
@@ -71,7 +71,7 @@ if data_dir: #making sure we do have value for data_dir
                                                 ])
     
     
-     # Load the datasets with ImageFolder
+    # Load the datasets with ImageFolder
     train_image_datasets = datasets.ImageFolder (train_dir, transform = train_data_transforms)
     valid_image_datasets = datasets.ImageFolder (valid_dir, transform = valid_data_transforms)
     test_image_datasets = datasets.ImageFolder (test_dir, transform = test_data_transforms)
@@ -80,19 +80,19 @@ if data_dir: #making sure we do have value for data_dir
     train_loader = torch.utils.data.DataLoader(train_image_datasets, batch_size = 32, shuffle = True)
     valid_loader = torch.utils.data.DataLoader(valid_image_datasets, batch_size = 32, shuffle = True)
     test_loader = torch.utils.data.DataLoader(test_image_datasets, batch_size = 32, shuffle = True)
-    #end of data loading block
   
-
 
 with open('cat_to_name.json', 'r') as f:
     cat_to_name = json.load(f)
 
 def load_model (arch, hidden_units):
-    if arch == 'vgg16': #setting model based on vgg13
-        model = models.vgg13 (pretrained = True)
+    #setting model based on vgg16
+    if arch == 'vgg16':
+        model = models.vgg16(pretrained = True)
         for param in model.parameters():
             param.requires_grad = False
-        if hidden_units: #in case hidden_units were given
+        #in case hidden_units were given
+        if hidden_units:
             classifier = nn.Sequential  (OrderedDict ([
                             ('fc1', nn.Linear (25088, 4096)),
                             ('relu1', nn.ReLU ()),
@@ -103,7 +103,7 @@ def load_model (arch, hidden_units):
                             ('fc3', nn.Linear (hidden_units, 102)),
                             ('output', nn.LogSoftmax (dim =1))
                             ]))
-        else: #if hidden_units not given
+        else:
             classifier = nn.Sequential  (OrderedDict ([
                         ('fc1', nn.Linear (25088, 4096)),
                         ('relu1', nn.ReLU ()),
@@ -114,13 +114,15 @@ def load_model (arch, hidden_units):
                         ('fc3', nn.Linear (2048, 102)),
                         ('output', nn.LogSoftmax (dim =1))
                         ]))
-    else: #setting model based on default Alexnet ModuleList
-        arch = 'alexnet' #will be used for checkpoint saving, so should be explicitly defined
+    #setting model based on default Alexnet ModuleList
+    else:
+        arch = 'alexnet'
         model = models.alexnet (pretrained = True)
         for param in model.parameters():
             param.requires_grad = False
-        if hidden_units: #in case hidden_units were given
-            classifier = nn.Sequential  (OrderedDict ([
+        #in case hidden_units were given
+        if hidden_units:
+            classifier = nn.Sequential(OrderedDict ([
                             ('fc1', nn.Linear (9216, 4096)),
                             ('relu1', nn.ReLU ()),
                             ('dropout1', nn.Dropout (p = 0.3)),
@@ -130,8 +132,8 @@ def load_model (arch, hidden_units):
                             ('fc3', nn.Linear (hidden_units, 102)),
                             ('output', nn.LogSoftmax (dim =1))
                             ]))
-        else: #if hidden_units not given
-            classifier = nn.Sequential  (OrderedDict ([
+        else:
+            classifier = nn.Sequential(OrderedDict ([
                         ('fc1', nn.Linear (9216, 4096)),
                         ('relu1', nn.ReLU ()),
                         ('dropout1', nn.Dropout (p = 0.3)),
@@ -141,7 +143,8 @@ def load_model (arch, hidden_units):
                         ('fc3', nn.Linear (2048, 102)),
                         ('output', nn.LogSoftmax (dim =1))
                         ]))
-    model.classifier = classifier #we can set classifier only once as cluasses self excluding (if/else)
+    #we can set classifier only once as cluasses self excluding (if/else)
+    model.classifier = classifier
     return model, arch
 
 # Defining validation Function. will be used during training
@@ -171,8 +174,8 @@ criterion = nn.NLLLoss ()
 
 optimizer = optim.Adam (model.classifier.parameters (), lr = lr)
 
-
-model.to (device) #device can be either cuda or cpu
+#device can be either cuda or cpu
+model.to (device)
 #setting number of epochs to be run
 print_every = 50
 steps = 0
@@ -183,17 +186,23 @@ for e in range (epochs):
     for ii, (inputs, labels) in enumerate (train_loader):
         steps += 1
         inputs, labels = inputs.to(device), labels.to(device)
-        optimizer.zero_grad () #where optimizer is working on classifier paramters only
+        #where optimizer is working on classifier paramters only
+        optimizer.zero_grad ()
 
         # Forward and backward passes
-        outputs = model.forward (inputs) #calculating output
-        loss = criterion (outputs, labels) #calculating loss (cost function)
+        #calculating output
+        outputs = model.forward (inputs)
+        #calculating loss (cost function)
+        loss = criterion (outputs, labels)
         loss.backward ()
-        optimizer.step () #performs single optimization step
-        running_loss += loss.item () # loss.item () returns scalar value of Loss function
+        #performs single optimization step
+        optimizer.step ()
+        # loss.item () returns value of Loss function
+        running_loss += loss.item ()
 
         if steps % print_every == 0:
-            model.eval () #switching to evaluation mode so that dropout is turned off
+            #switching to evaluation mode so that dropout is turned off
+            model.eval ()
             # Turn off gradients for validation, saves memory and computations
             with torch.no_grad():
                 valid_loss, accuracy = validation(model, valid_loader, criterion)
@@ -208,9 +217,10 @@ for e in range (epochs):
             model.train()
 
 #saving trained Model
-model.to ('cpu') #no need to use cuda for saving/loading model.
+model.to ('cpu')
 # Save the checkpoint
-model.class_to_idx = train_image_datasets.class_to_idx #saving mapping between predicted class and class name,
+#saving mapping between predicted class and class name,
+model.class_to_idx = train_image_datasets.class_to_idx
 #second variable is a class name in numeric
 
 #creating dictionary for model saving
