@@ -44,7 +44,6 @@ data_dir = args.data_dir
 
 train_dir = data_dir + '/train'
 valid_dir = data_dir + '/valid'
-test_dir = data_dir + '/test'
 save_directory = args.save_dir
 arch = args.arch
 lr = args.lr
@@ -80,12 +79,10 @@ if data_dir:
     # Load the datasets with ImageFolder
     train_image_datasets = datasets.ImageFolder(train_dir, transform = train_data_transforms)
     valid_image_datasets = datasets.ImageFolder(valid_dir, transform = valid_data_transforms)
-    test_image_datasets = datasets.ImageFolder(test_dir, transform = test_data_transforms)
 
     # Using the image datasets and the trainforms, define the dataloaders
     train_loader = torch.utils.data.DataLoader(train_image_datasets, batch_size = 32, shuffle = True)
     valid_loader = torch.utils.data.DataLoader(valid_image_datasets, batch_size = 32, shuffle = True)
-    test_loader = torch.utils.data.DataLoader(test_image_datasets, batch_size = 32, shuffle = True)
   
 
 with open('cat_to_name.json', 'r') as f:
