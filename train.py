@@ -21,18 +21,23 @@ parser.add_argument('--save_dir', default='./',
                     help="The relative path to save the neural network checkpoint")             
 # 3. Choose the architecture
 parser.add_argument('--arch', default="vgg16",
-                    help="The model architecture supported here are  vgg16 or resnet18")
+                    help="The model architecture supported here are  vgg16 or alexnet")
 # 4. Set the hyperparameters: Learning Rate, Hidden Units, Epochs.
 parser.add_argument('--lr', type=float, default="0.0005",
                     help="The learning rate for the model. Should be very small")
-parser.add_argument('--hidden_units', type=int, default=256 ,
+
+parser.add_argument('--hidden_units', type=int, default=256,
                     help="The number of units in the hidden layer")
+
+parser.add_argument('--output_class', type=int, default=102,
+                    help="The number of Output Class")
+
 parser.add_argument('--epochs', type=int, default=2,
                     help="The number of epochs you want to use")
 
 # 5. Choose the GPU for training
 parser.add_argument('--gpu', action='store_true',
-                    help="If you would like to use the GPU for training. Default is False. if you want to use the gpu enter True or gpu or cuda")
+                    help="If you would like to use the GPU for training. Default is False. Give args --gpu")
 
 args = parser.parse_args()
 data_dir = args.data_dir
@@ -43,38 +48,39 @@ test_dir = data_dir + '/test'
 save_directory = args.save_dir
 arch = args.arch
 lr = args.lr
+output_class = args.output_class
 num_hidden_units = args.hidden_units
 epochs = args.epochs
 
-if args.gpu == 'gpu' and torch.cuda.is_available():
+if args.gpu == True and torch.cuda.is_available():
     device = 'cuda'
 else:
     device = 'cpu'
 
 if data_dir:
     # Define your transforms for the training, validation, and testing sets
-    train_data_transforms = transforms.Compose ([transforms.RandomRotation(30),
+    train_data_transforms = transforms.Compose([transforms.RandomRotation(30),
                                                 transforms.Resize((224,224)),
                                                 transforms.RandomHorizontalFlip(),
                                                 transforms.ToTensor(),
                                                 transforms.Normalize([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
                                                 ])
 
-    valid_data_transforms = transforms.Compose ([transforms.Resize((224,224)),
+    valid_data_transforms = transforms.Compose([transforms.Resize((224,224)),
                                                 transforms.ToTensor(),
                                                 transforms.Normalize ([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
                                                 ])
 
-    test_data_transforms = transforms.Compose ([transforms.Resize((224,224)),
-                                                transforms.ToTensor(),
-                                                transforms.Normalize([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
-                                                ])
+    test_data_transforms = transforms.Compose([transforms.Resize((224,224)),
+                                               transforms.ToTensor(),
+                                               transforms.Normalize([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])
+                                               ])
     
     
     # Load the datasets with ImageFolder
-    train_image_datasets = datasets.ImageFolder (train_dir, transform = train_data_transforms)
-    valid_image_datasets = datasets.ImageFolder (valid_dir, transform = valid_data_transforms)
-    test_image_datasets = datasets.ImageFolder (test_dir, transform = test_data_transforms)
+    train_image_datasets = datasets.ImageFolder(train_dir, transform = train_data_transforms)
+    valid_image_datasets = datasets.ImageFolder(valid_dir, transform = valid_data_transforms)
+    test_image_datasets = datasets.ImageFolder(test_dir, transform = test_data_transforms)
 
     # Using the image datasets and the trainforms, define the dataloaders
     train_loader = torch.utils.data.DataLoader(train_image_datasets, batch_size = 32, shuffle = True)
@@ -85,65 +91,42 @@ if data_dir:
 with open('cat_to_name.json', 'r') as f:
     cat_to_name = json.load(f)
 
-def load_model (arch, hidden_units):
+def load_model (arch, hidden_units=2048):
     #setting model based on vgg16
     if arch == 'vgg16':
         model = models.vgg16(pretrained = True)
         for param in model.parameters():
             param.requires_grad = False
-        #in case hidden_units were given
-        if hidden_units:
-            classifier = nn.Sequential  (OrderedDict ([
-                            ('fc1', nn.Linear (25088, 4096)),
-                            ('relu1', nn.ReLU ()),
-                            ('dropout1', nn.Dropout (p = 0.3)),
-                            ('fc2', nn.Linear (4096, hidden_units)),
-                            ('relu2', nn.ReLU ()),
-                            ('dropout2', nn.Dropout (p = 0.3)),
-                            ('fc3', nn.Linear (hidden_units, 102)),
-                            ('output', nn.LogSoftmax (dim =1))
-                            ]))
-        else:
-            classifier = nn.Sequential  (OrderedDict ([
-                        ('fc1', nn.Linear (25088, 4096)),
-                        ('relu1', nn.ReLU ()),
-                        ('dropout1', nn.Dropout (p = 0.3)),
-                        ('fc2', nn.Linear (4096, 2048)),
-                        ('relu2', nn.ReLU ()),
-                        ('dropout2', nn.Dropout (p = 0.3)),
-                        ('fc3', nn.Linear (2048, 102)),
-                        ('output', nn.LogSoftmax (dim =1))
-                        ]))
+        
+       
+        classifier = nn.Sequential  (OrderedDict ([
+                    ('fc1', nn.Linear (25088, 4096)),
+                    ('relu1', nn.ReLU ()),
+                    ('dropout1', nn.Dropout (p = 0.3)),
+                    ('fc2', nn.Linear (4096, hidden_units)),
+                    ('relu2', nn.ReLU ()),
+                    ('dropout2', nn.Dropout (p = 0.3)),
+                    ('fc3', nn.Linear (hidden_units, output_class)),
+                    ('output', nn.LogSoftmax (dim =1))
+                    ]))
     #setting model based on default Alexnet ModuleList
     else:
         arch = 'alexnet'
-        model = models.alexnet (pretrained = True)
+        model = models.alexnet(pretrained = True)
         for param in model.parameters():
             param.requires_grad = False
-        #in case hidden_units were given
-        if hidden_units:
-            classifier = nn.Sequential(OrderedDict ([
-                            ('fc1', nn.Linear (9216, 4096)),
-                            ('relu1', nn.ReLU ()),
-                            ('dropout1', nn.Dropout (p = 0.3)),
-                            ('fc2', nn.Linear (4096, hidden_units)),
-                            ('relu2', nn.ReLU ()),
-                            ('dropout2', nn.Dropout (p = 0.3)),
-                            ('fc3', nn.Linear (hidden_units, 102)),
-                            ('output', nn.LogSoftmax (dim =1))
-                            ]))
-        else:
-            classifier = nn.Sequential(OrderedDict ([
-                        ('fc1', nn.Linear (9216, 4096)),
-                        ('relu1', nn.ReLU ()),
-                        ('dropout1', nn.Dropout (p = 0.3)),
-                        ('fc2', nn.Linear (4096, 2048)),
-                        ('relu2', nn.ReLU ()),
-                        ('dropout2', nn.Dropout (p = 0.3)),
-                        ('fc3', nn.Linear (2048, 102)),
-                        ('output', nn.LogSoftmax (dim =1))
-                        ]))
-    #we can set classifier only once as cluasses self excluding (if/else)
+       
+        classifier = nn.Sequential(OrderedDict ([
+                    ('fc1', nn.Linear (9216, 4096)),
+                    ('relu1', nn.ReLU ()),
+                    ('dropout1', nn.Dropout (p = 0.3)),
+                    ('fc2', nn.Linear (4096, hidden_units)),
+                    ('relu2', nn.ReLU ()),
+                    ('dropout2', nn.Dropout (p = 0.3)),
+                    ('fc3', nn.Linear (hidden_units, output_class)),
+                    ('output', nn.LogSoftmax (dim =1))
+                    ]))
+    
     model.classifier = classifier
     return model, arch
 
@@ -158,7 +141,7 @@ def validation(model, valid_loader, criterion):
         inputs, labels = inputs.to(device), labels.to(device)
         output = model.forward(inputs)
         valid_loss += criterion(output, labels).item()
-
+        ps = torch.exp(output)
         top_p, top_class = ps.topk(1, dim=1)
         equals = top_class == labels.view(*top_class.shape)
         accuracy += equals.type(torch.FloatTensor).mean()
@@ -170,12 +153,11 @@ model, arch = load_model (arch, num_hidden_units)
 
 #Actual training of the model
 #initializing criterion and optimizer
-criterion = nn.NLLLoss ()
-
-optimizer = optim.Adam (model.classifier.parameters (), lr = lr)
+criterion = nn.NLLLoss()
+optimizer = optim.Adam(model.classifier.parameters(), lr = lr)
 
 #device can be either cuda or cpu
-model.to (device)
+model.to(device)
 #setting number of epochs to be run
 print_every = 50
 steps = 0
@@ -183,20 +165,20 @@ steps = 0
 #runing through epochs
 for e in range (epochs):
     running_loss = 0
-    for ii, (inputs, labels) in enumerate (train_loader):
+    for ii, (inputs, labels) in enumerate(train_loader):
         steps += 1
         inputs, labels = inputs.to(device), labels.to(device)
         #where optimizer is working on classifier paramters only
-        optimizer.zero_grad ()
+        optimizer.zero_grad()
 
         # Forward and backward passes
         #calculating output
         outputs = model.forward (inputs)
         #calculating loss (cost function)
         loss = criterion (outputs, labels)
-        loss.backward ()
+        loss.backward()
         #performs single optimization step
-        optimizer.step ()
+        optimizer.step()
         # loss.item () returns value of Loss function
         running_loss += loss.item ()
 
